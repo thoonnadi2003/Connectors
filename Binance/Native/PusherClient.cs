@@ -29,6 +29,12 @@ class PusherClient : BaseLogReceiver
 				},
 				(error, token) =>
 				{
+					if (IsTransientDisconnect(error))
+					{
+						this.AddWarningLog("WebSocket connection was interrupted; reconnecting.");
+						return default;
+					}
+
 					this.AddErrorLog(error);
 
 					if (Client.Error is { } handler)
@@ -44,6 +50,17 @@ class PusherClient : BaseLogReceiver
 				ReconnectAttempts = ((BinanceMessageAdapter)Client.Parent).ReConnectionSettings.ReAttemptCount,
 				WorkingTime = workingTime ?? throw new ArgumentNullException(nameof(workingTime)),
 			};
+		}
+
+		private static bool IsTransientDisconnect(Exception error)
+		{
+			for (var current = error; current != null; current = current.InnerException)
+			{
+				if (current is System.Net.WebSockets.WebSocketException or System.IO.IOException)
+					return true;
+			}
+
+			return false;
 		}
 
 		// to get readable name after obfuscation
