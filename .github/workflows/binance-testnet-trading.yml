@@ -30,7 +30,7 @@ jobs:
           path: StockSharp (GitHub)
           filter: blob:none
       - name: Check required secrets
-        shell: pwsh
+        shell: powershell
         run: |
           if ([string]::IsNullOrWhiteSpace($env:BINANCE_TESTNET_API_KEY) -or
               [string]::IsNullOrWhiteSpace($env:BINANCE_TESTNET_API_SECRET)) {
