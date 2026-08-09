@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   trading-cycle:
-    runs-on: windows-latest
+    runs-on: [self-hosted, Windows, X64, stocksharp-binance]
     timeout-minutes: 10
     env:
       STOCKSHARP_LIVE_TESTS: "true"
