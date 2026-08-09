@@ -1,0 +1,27 @@
+name: Binance Testnet trading cycle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trading-cycle:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    env:
+      STOCKSHARP_LIVE_TESTS: "true"
+      BINANCE_TESTNET_API_KEY: ${{ secrets.BINANCE_TESTNET_API_KEY }}
+      BINANCE_TESTNET_API_SECRET: ${{ secrets.BINANCE_TESTNET_API_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required secrets
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:BINANCE_TESTNET_API_KEY) -or
+              [string]::IsNullOrWhiteSpace($env:BINANCE_TESTNET_API_SECRET)) {
+            throw "Configure BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET as repository Actions secrets."
+          }
+      - name: Run Binance trading cycle
+        run: dotnet test Binance.Tests/Binance.Tests.csproj --configuration Release --filter "FullyQualifiedName~BinanceTradingCycleTests.MarketDataAndTradingCycle"

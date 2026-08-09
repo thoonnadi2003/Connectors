@@ -9,13 +9,13 @@ class PusherClient : BaseLogReceiver
 		protected BinanceSections Section { get; }
 		protected PusherClient Client { get; }
 
-		protected BasePusherClient(PusherClient client, WorkingTime workingTime, BinanceSections section, string path)
+		protected BasePusherClient(PusherClient client, WorkingTime workingTime, BinanceSections section, string path, string absoluteUrl = null)
 		{
 			Section = section;
 			Parent = Client = client ?? throw new ArgumentNullException(nameof(client));
 
 			_client = new(
-				GetUrl() + "/" + path.ThrowIfEmpty(nameof(path)),
+				absoluteUrl ?? GetUrl() + "/" + path.ThrowIfEmpty(nameof(path)),
 				(state, token) =>
 				{
 					// this states controlled by BinanceMessageAdapter
@@ -98,6 +98,9 @@ class PusherClient : BaseLogReceiver
 			this.AddInfoLog(LocalizedStrings.Connecting);
 			return _client.ConnectAsync(cancellationToken);
 		}
+
+		protected ValueTask SendAsync(object payload, CancellationToken cancellationToken)
+			=> _client.SendAsync(payload, cancellationToken);
 
 		public ValueTask DisconnectAsync(CancellationToken cancellationToken)
 		{
@@ -493,20 +496,60 @@ class PusherClient : BaseLogReceiver
 	private class AuthPusherClient : BasePusherClient
 	{
 		private readonly string _isolatedSymbol;
+		private readonly bool _useWebSocketApi;
 
-		public AuthPusherClient(PusherClient parent, BinanceSections section, string isolatedSymbol, string path)
-			: base(parent, parent._workingTime, section, path)
+		public AuthPusherClient(PusherClient parent, BinanceSections section, string isolatedSymbol, string path, string absoluteUrl = null)
+			: base(parent, parent._workingTime, section, path, absoluteUrl)
 		{
 			BinanceMessageAdapter.CheckSectionSymbol(section, isolatedSymbol);
 			_isolatedSymbol = isolatedSymbol;
+			_useWebSocketApi = absoluteUrl != null;
 		}
 
 		// to get readable name after obfuscation
 		public override string Name => base.Name + "_Auth";
 
+		public async ValueTask ConnectAndSubscribe(CancellationToken cancellationToken)
+		{
+			await Connect(cancellationToken);
+
+			if (!_useWebSocketApi)
+				return;
+
+			var adapter = (BinanceMessageAdapter)Client.Parent;
+			var apiKey = adapter.Key.UnSecure();
+			var timestamp = (long)DateTime.UtcNow.ToUnix(false);
+			var payload = $"apiKey={apiKey}&timestamp={timestamp}";
+			var signature = new System.Security.Cryptography.HMACSHA256(adapter.Secret.UnSecure().UTF8())
+				.ComputeHash(payload.UTF8())
+				.Digest()
+				.ToLowerInvariant();
+
+			await SendAsync(new
+			{
+				id = Guid.NewGuid().ToString(),
+				method = "userDataStream.subscribe.signature",
+				@params = new { apiKey, timestamp, signature },
+			}, cancellationToken);
+		}
+
 		protected override async ValueTask OnParse(WebSocketMessage msg, CancellationToken cancellationToken)
 		{
 			var obj = msg.AsObject();
+
+			if (_useWebSocketApi)
+			{
+				if (obj.@event is not null)
+					obj = obj.@event;
+				else
+				{
+					if (obj.status is not null && (int)obj.status != 200)
+						this.AddErrorLog("user data subscription failed: {0}", (string)obj.ToString());
+					else if (obj.status is not null)
+						this.AddInfoLog("user data subscription active");
+					return;
+				}
+			}
 
 			var stream = (string)obj.e;
 
@@ -785,6 +828,20 @@ class PusherClient : BaseLogReceiver
 		var client = new AuthPusherClient(this, section, isolatedSymbol, "ws/" + listenKey);
 		await client.Connect(cancellationToken);
 		_authClients.Add((section, isolatedSymbol), client);
+	}
+
+	public async Task SubscribeSpotAccount(CancellationToken cancellationToken)
+	{
+		var key = (BinanceSections.Spot, (string)null);
+
+		if (_authClients.ContainsKey(key))
+			throw new InvalidOperationException("Spot account connection was not disconnected");
+
+		var adapter = (BinanceMessageAdapter)Parent;
+		var host = adapter.IsDemo ? "ws-api.testnet.binance.vision" : "ws-api.binance.com:443";
+		var client = new AuthPusherClient(this, BinanceSections.Spot, null, null, $"wss://{host}/ws-api/v3");
+		await client.ConnectAndSubscribe(cancellationToken);
+		_authClients.Add(key, client);
 	}
 
 	public ValueTask UnSubscribeAccount(BinanceSections section, string isolatedSymbol, CancellationToken cancellationToken)

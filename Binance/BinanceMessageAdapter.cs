@@ -109,6 +109,12 @@ public partial class BinanceMessageAdapter
 		if(_pusherClient.IsAccountSubscribed(section, isolatedSymbol))
 			return;
 
+		if (section == BinanceSections.Spot && isolatedSymbol.IsEmptyOrWhiteSpace())
+		{
+			await _pusherClient.SubscribeSpotAccount(cancellationToken);
+			return;
+		}
+
 		var listenKey = await EnsureListenKey(section, isolatedSymbol, cancellationToken);
 
 		await SubscribeAccount(section, isolatedSymbol, listenKey, cancellationToken);

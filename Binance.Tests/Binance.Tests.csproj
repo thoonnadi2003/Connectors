@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\StockSharp (GitHub)\common_target_tests.props" />
+  <ItemGroup>
+    <ProjectReference Include="..\Binance\Binance.csproj" />
+    <Compile Include="..\Tests\BinanceTradingCycleTests.cs" Link="BinanceTradingCycleTests.cs" />
+  </ItemGroup>
+</Project>
