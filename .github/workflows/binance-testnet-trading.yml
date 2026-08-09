@@ -18,7 +18,16 @@ jobs:
       BINANCE_TESTNET_API_KEY: ${{ secrets.BINANCE_TESTNET_API_KEY }}
       BINANCE_TESTNET_API_SECRET: ${{ secrets.BINANCE_TESTNET_API_SECRET }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout connectors branch
+        uses: actions/checkout@v4
+        with:
+          path: Connectors
+      - name: Checkout StockSharp core branch
+        uses: actions/checkout@v4
+        with:
+          repository: thoonnadi2003/StockSharp
+          ref: codex/stocksharp-orderbook-fixes
+          path: StockSharp (GitHub)
       - name: Check required secrets
         shell: pwsh
         run: |
@@ -27,4 +36,5 @@ jobs:
             throw "Configure BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET as repository Actions secrets."
           }
       - name: Run Binance trading cycle
+        working-directory: Connectors
         run: dotnet test Binance.Tests/Binance.Tests.csproj --configuration Release --filter "FullyQualifiedName~BinanceTradingCycleTests.MarketDataAndTradingCycle"
