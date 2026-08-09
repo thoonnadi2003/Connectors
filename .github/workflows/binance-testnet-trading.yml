@@ -2,6 +2,9 @@ name: Binance Testnet trading cycle
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/binance-connector-trading-tests
 
 permissions:
   contents: read
