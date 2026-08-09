@@ -28,6 +28,7 @@ jobs:
           repository: thoonnadi2003/StockSharp
           ref: codex/stocksharp-orderbook-fixes
           path: StockSharp (GitHub)
+          filter: blob:none
       - name: Check required secrets
         shell: pwsh
         run: |
