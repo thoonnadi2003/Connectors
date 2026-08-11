@@ -25,6 +25,9 @@ _ReSharper*/
 *.tmp
 ~$*
 *~
+.env
+.env.*
+*.secrets
 
 # Agent / local workspace
 .claude

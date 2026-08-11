@@ -38,4 +38,4 @@ jobs:
           }
       - name: Run Binance trading cycle
         working-directory: Connectors
-        run: dotnet test Binance.Tests/Binance.Tests.csproj --configuration Release --filter "FullyQualifiedName~BinanceTradingCycleTests.MarketDataAndTradingCycle"
+        run: dotnet test Binance.Tests/Binance.Tests.csproj --configuration Release --filter "FullyQualifiedName~BinanceTradingCycleTests"

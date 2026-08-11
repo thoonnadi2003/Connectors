@@ -16,8 +16,11 @@ static class Extensions
 		{
 			case null:
 			case OrderTypes.Limit:
+				if (!section.IsCommonFutures() && postOnly == true)
+					return "LIMIT_MAKER";
+
 				isTif = true;
-				return !section.IsCommonFutures() && postOnly == true ? "LIMIT_MAKER" : "LIMIT";
+				return "LIMIT";
 			case OrderTypes.Market:
 				return "MARKET";
 			case OrderTypes.Conditional:

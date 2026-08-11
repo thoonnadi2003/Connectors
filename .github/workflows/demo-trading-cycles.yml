@@ -1,0 +1,78 @@
+name: Demo trading cycles
+
+on:
+  workflow_dispatch:
+    inputs:
+      exchange:
+        description: Simulated exchange to test
+        required: true
+        default: binance
+        type: choice
+        options:
+          - binance
+          - bybit
+          - okx
+          - bitmex
+          - deribit
+          - bitget
+          - all
+
+permissions:
+  contents: read
+
+jobs:
+  trading-cycle:
+    runs-on: [self-hosted, Windows, X64, stocksharp-binance]
+    timeout-minutes: 15
+    env:
+      STOCKSHARP_LIVE_TESTS: "true"
+      BINANCE_TESTNET_API_KEY: ${{ secrets.BINANCE_TESTNET_API_KEY }}
+      BINANCE_TESTNET_API_SECRET: ${{ secrets.BINANCE_TESTNET_API_SECRET }}
+      BYBIT_DEMO_API_KEY: ${{ secrets.BYBIT_DEMO_API_KEY }}
+      BYBIT_DEMO_API_SECRET: ${{ secrets.BYBIT_DEMO_API_SECRET }}
+      OKX_DEMO_API_KEY: ${{ secrets.OKX_DEMO_API_KEY }}
+      OKX_DEMO_API_SECRET: ${{ secrets.OKX_DEMO_API_SECRET }}
+      OKX_DEMO_API_PASSPHRASE: ${{ secrets.OKX_DEMO_API_PASSPHRASE }}
+      BITMEX_TESTNET_API_KEY: ${{ secrets.BITMEX_TESTNET_API_KEY }}
+      BITMEX_TESTNET_API_SECRET: ${{ secrets.BITMEX_TESTNET_API_SECRET }}
+      DERIBIT_TESTNET_CLIENT_ID: ${{ secrets.DERIBIT_TESTNET_CLIENT_ID }}
+      DERIBIT_TESTNET_CLIENT_SECRET: ${{ secrets.DERIBIT_TESTNET_CLIENT_SECRET }}
+      BITGET_DEMO_API_KEY: ${{ secrets.BITGET_DEMO_API_KEY }}
+      BITGET_DEMO_API_SECRET: ${{ secrets.BITGET_DEMO_API_SECRET }}
+      BITGET_DEMO_API_PASSPHRASE: ${{ secrets.BITGET_DEMO_API_PASSPHRASE }}
+    steps:
+      - name: Checkout connectors branch
+        uses: actions/checkout@v4
+        with:
+          path: Connectors
+      - name: Checkout StockSharp core branch
+        uses: actions/checkout@v4
+        with:
+          repository: thoonnadi2003/StockSharp
+          ref: codex/stocksharp-orderbook-fixes
+          path: StockSharp (GitHub)
+          filter: blob:none
+      - name: Check selected credentials and run cycle
+        shell: powershell
+        working-directory: Connectors
+        run: |
+          $config = @{
+            binance = @{ Test = 'BinanceTradingCycleTests'; Vars = @('BINANCE_TESTNET_API_KEY', 'BINANCE_TESTNET_API_SECRET') }
+            bybit = @{ Test = 'ByBitDemoTradingCycleTests'; Vars = @('BYBIT_DEMO_API_KEY', 'BYBIT_DEMO_API_SECRET') }
+            okx = @{ Test = 'OkxDemoTradingCycleTests'; Vars = @('OKX_DEMO_API_KEY', 'OKX_DEMO_API_SECRET', 'OKX_DEMO_API_PASSPHRASE') }
+            bitmex = @{ Test = 'BitmexTestnetTradingCycleTests'; Vars = @('BITMEX_TESTNET_API_KEY', 'BITMEX_TESTNET_API_SECRET') }
+            deribit = @{ Test = 'DeribitTestnetTradingCycleTests'; Vars = @('DERIBIT_TESTNET_CLIENT_ID', 'DERIBIT_TESTNET_CLIENT_SECRET') }
+            bitget = @{ Test = 'BitgetDemoTradingCycleTests'; Vars = @('BITGET_DEMO_API_KEY', 'BITGET_DEMO_API_SECRET', 'BITGET_DEMO_API_PASSPHRASE') }
+          }
+          $selectedName = '${{ inputs.exchange }}'
+          $selected = if ($selectedName -eq 'all') { @($config.Keys) } else { @($selectedName) }
+          $missing = foreach ($name in $selected) {
+            foreach ($variable in $config[$name].Vars) {
+              if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($variable))) { $variable }
+            }
+          }
+          if ($missing) {
+            throw "Configure the selected repository Actions secrets: $($missing -join ', ')."
+          }
+          $filter = ($selected | ForEach-Object { "FullyQualifiedName~$($config[$_].Test)" }) -join '|'
+          dotnet test DemoTrading.Tests/DemoTrading.Tests.csproj --configuration Release --filter $filter

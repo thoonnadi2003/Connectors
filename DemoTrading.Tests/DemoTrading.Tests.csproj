@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\StockSharp (GitHub)\common_target_tests.props" />
+  <ItemGroup>
+    <ProjectReference Include="..\Binance\Binance.csproj" />
+    <ProjectReference Include="..\Bitget\Bitget.csproj" />
+    <ProjectReference Include="..\Bitmex\Bitmex.csproj" />
+    <ProjectReference Include="..\ByBit\ByBit.csproj" />
+    <ProjectReference Include="..\Deribit\Deribit.csproj" />
+    <ProjectReference Include="..\Okex\Okex.csproj" />
+    <Compile Include="..\Tests\DemoTradingTestSupport.cs" Link="DemoTradingTestSupport.cs" />
+    <Compile Include="..\Tests\MarketDataTestHarness.cs" Link="MarketDataTestHarness.cs" />
+    <Compile Include="..\Tests\BinanceRegressionTests.cs" Link="BinanceRegressionTests.cs" />
+    <Compile Include="..\Tests\BinanceTradingCycleTests.cs" Link="BinanceTradingCycleTests.cs" />
+    <Compile Include="..\Tests\ByBitDemoTradingCycleTests.cs" Link="ByBitDemoTradingCycleTests.cs" />
+    <Compile Include="..\Tests\OkxDemoTradingCycleTests.cs" Link="OkxDemoTradingCycleTests.cs" />
+    <Compile Include="..\Tests\BitmexTestnetTradingCycleTests.cs" Link="BitmexTestnetTradingCycleTests.cs" />
+    <Compile Include="..\Tests\DeribitTestnetTradingCycleTests.cs" Link="DeribitTestnetTradingCycleTests.cs" />
+    <Compile Include="..\Tests\BitgetDemoTradingCycleTests.cs" Link="BitgetDemoTradingCycleTests.cs" />
+    <Compile Include="..\Tests\BitgetAuthenticationTests.cs" Link="BitgetAuthenticationTests.cs" />
+  </ItemGroup>
+</Project>

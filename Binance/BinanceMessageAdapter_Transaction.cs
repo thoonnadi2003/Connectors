@@ -16,8 +16,11 @@ public partial class BinanceMessageAdapter
 		return PortfolioName + "_" + BinanceSections.Margin + _isolatedPortfolioSuffix + symbol.ToUpperInvariant();
 	}
 
-	private static string TryGetSymbolFromIsolatedPortfolioName(string portfolioName)
+	internal static string TryGetSymbolFromIsolatedPortfolioName(string portfolioName)
 	{
+		if (string.IsNullOrEmpty(portfolioName))
+			return null;
+
 		var idx = portfolioName.LastIndexOf(_isolatedPortfolioSuffix, StringComparison.InvariantCulture);
 		if(idx < 0)
 			return null;

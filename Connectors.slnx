@@ -385,6 +385,7 @@
     <Project Path="Noren/Noren.csproj" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="DemoTrading.Tests/DemoTrading.Tests.csproj" />
     <Project Path="Tests/Tests.csproj" />
   </Folder>
 </Solution>

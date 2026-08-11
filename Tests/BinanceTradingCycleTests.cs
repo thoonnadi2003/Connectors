@@ -8,9 +8,15 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
+using Ecng.Common;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+using StockSharp.Binance;
+using StockSharp.Messages;
 
 /// <summary>
 /// Opt-in Binance Spot Testnet smoke test covering public market data and the
@@ -27,14 +33,7 @@ public class BinanceTradingCycleTests
 	[Timeout(120000)]
 	public async Task MarketDataAndTradingCycle()
 	{
-		if (!string.Equals(Environment.GetEnvironmentVariable("STOCKSHARP_LIVE_TESTS"), "true", StringComparison.OrdinalIgnoreCase))
-			Assert.Inconclusive("Set STOCKSHARP_LIVE_TESTS=true to run live integration tests.");
-
-		var key = Environment.GetEnvironmentVariable("BINANCE_TESTNET_API_KEY");
-		var secret = Environment.GetEnvironmentVariable("BINANCE_TESTNET_API_SECRET");
-
-		if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(secret))
-			Assert.Inconclusive("Binance Testnet credentials are not configured in environment variables.");
+		var (key, secret) = GetCredentials();
 
 		using var client = new HttpClient { BaseAddress = new(_baseUrl) };
 		client.DefaultRequestHeaders.Add("X-MBX-APIKEY", key);
@@ -93,6 +92,177 @@ public class BinanceTradingCycleTests
 				Assert.AreEqual("CANCELED", canceled.RootElement.GetProperty("status").GetString());
 			}
 		}
+	}
+
+	[TestMethod]
+	[Timeout(120000)]
+	public async Task ConnectorWebSocketTradingCycle()
+	{
+		var (key, secret) = GetCredentials();
+
+		using var client = new HttpClient { BaseAddress = new(_baseUrl) };
+		var (price, quantity) = await GetSafeOrderAsync(client);
+
+		var adapter = new BinanceMessageAdapter(new IncrementalIdGenerator())
+		{
+			Key = key.Secure(),
+			Secret = secret.Secure(),
+			IsDemo = true,
+			Sections = [BinanceSections.Spot],
+			RemoveListenKeyOnDisconnect = false,
+		};
+
+		await using var harness = new MarketDataTestHarness(adapter);
+		using var testSource = new CancellationTokenSource(TimeSpan.FromSeconds(105));
+		var securityId = new SecurityId
+		{
+			SecurityCode = _symbol,
+			BoardCode = BoardCodes.Binance,
+		};
+		var registerId = adapter.TransactionIdGenerator.GetNextId();
+		long? orderId = null;
+		var canceled = false;
+
+		try
+		{
+			await harness.ConnectAsync(TimeSpan.FromSeconds(30), testSource.Token);
+
+			var registeredReader = harness.CreateReader();
+			harness.Post(new OrderRegisterMessage
+			{
+				TransactionId = registerId,
+				SecurityId = securityId,
+				Side = Sides.Buy,
+				Price = price,
+				Volume = quantity,
+				OrderType = OrderTypes.Limit,
+				TimeInForce = TimeInForce.PutInQueue,
+				PostOnly = true,
+			}, testSource.Token);
+
+			var registered = await WaitForExecutionAsync(registeredReader,
+				TimeSpan.FromSeconds(30), testSource.Token);
+
+			if (registered.Error is not null)
+				Assert.Fail(registered.Error.ToString());
+
+			Assert.AreEqual(registerId, registered.OriginalTransactionId,
+				"Binance WebSocket event was not correlated with the registration request.");
+			Assert.IsTrue(registered.OrderState is OrderStates.Pending or OrderStates.Active,
+				$"Unexpected registered order state: {registered.OrderState}.");
+			Assert.IsNotNull(registered.OrderId, "Authenticated WebSocket event did not include the Binance order id.");
+			orderId = registered.OrderId;
+
+			var canceledReader = harness.CreateReader();
+			var cancelId = PostCancel(harness, adapter, securityId, registerId, orderId, testSource.Token);
+
+			var cancellation = await WaitForExecutionAsync(canceledReader,
+				TimeSpan.FromSeconds(30), testSource.Token);
+
+			if (cancellation.Error is not null)
+				Assert.Fail(cancellation.Error.ToString());
+
+			Assert.AreEqual(cancelId, cancellation.OriginalTransactionId,
+				"Binance WebSocket event was not correlated with the cancellation request.");
+			Assert.AreEqual(OrderStates.Done, cancellation.OrderState,
+				$"Unexpected canceled order state: {cancellation.OrderState}.");
+			canceled = true;
+			Assert.AreEqual(0, harness.Errors.Length,
+				"Binance adapter reported an out-of-band error during the authenticated trading cycle.");
+		}
+		finally
+		{
+			if (!canceled)
+			{
+				try
+				{
+					PostCancel(harness, adapter, securityId, registerId, orderId, CancellationToken.None);
+					await Task.Delay(TimeSpan.FromSeconds(2), CancellationToken.None);
+				}
+				catch (Exception)
+				{
+				}
+			}
+
+			try
+			{
+				await harness.DisconnectAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
+			}
+			catch (Exception)
+			{
+			}
+		}
+	}
+
+	private static (string key, string secret) GetCredentials()
+	{
+		if (!string.Equals(Environment.GetEnvironmentVariable("STOCKSHARP_LIVE_TESTS"), "true", StringComparison.OrdinalIgnoreCase))
+			Assert.Inconclusive("Set STOCKSHARP_LIVE_TESTS=true to run live integration tests.");
+
+		var key = Environment.GetEnvironmentVariable("BINANCE_TESTNET_API_KEY");
+		var secret = Environment.GetEnvironmentVariable("BINANCE_TESTNET_API_SECRET");
+
+		if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(secret))
+			Assert.Inconclusive("Binance Testnet credentials are not configured in environment variables.");
+
+		return (key, secret);
+	}
+
+	private static long PostCancel(MarketDataTestHarness harness, BinanceMessageAdapter adapter,
+		SecurityId securityId, long registerId, long? orderId, CancellationToken cancellationToken)
+	{
+		var cancelId = adapter.TransactionIdGenerator.GetNextId();
+
+		harness.Post(new OrderCancelMessage
+		{
+			TransactionId = cancelId,
+			OriginalTransactionId = registerId,
+			SecurityId = securityId,
+			OrderId = orderId,
+		}, cancellationToken);
+
+		return cancelId;
+	}
+
+	private static async Task<ExecutionMessage> WaitForExecutionAsync(MessageReader reader,
+		TimeSpan timeout, CancellationToken cancellationToken)
+	{
+		var message = await reader.WaitAsync<Message>(
+			m => m is ErrorMessage or ExecutionMessage { HasOrderInfo: true },
+			timeout, cancellationToken);
+
+		if (message is ErrorMessage error)
+			Assert.Fail(error.Error.ToString());
+
+		return (ExecutionMessage)message;
+	}
+
+	private static async Task<(decimal price, decimal quantity)> GetSafeOrderAsync(HttpClient client)
+	{
+		var exchangeInfo = await GetJson(client, $"/api/v3/exchangeInfo?symbol={_symbol}");
+		var symbol = exchangeInfo.RootElement.GetProperty("symbols")[0];
+		var lotSize = symbol.GetProperty("filters").EnumerateArray()
+			.First(f => f.GetProperty("filterType").GetString() == "LOT_SIZE");
+		var priceFilter = symbol.GetProperty("filters").EnumerateArray()
+			.First(f => f.GetProperty("filterType").GetString() == "PRICE_FILTER");
+		var minNotionalFilter = symbol.GetProperty("filters").EnumerateArray()
+			.FirstOrDefault(f => f.GetProperty("filterType").GetString() is "MIN_NOTIONAL" or "NOTIONAL");
+
+		var depth = await GetJson(client, $"/api/v3/depth?symbol={_symbol}&limit=5");
+		var bestBid = Decimal(depth.RootElement.GetProperty("bids")[0][0]);
+		var bestAsk = Decimal(depth.RootElement.GetProperty("asks")[0][0]);
+		Assert.IsTrue(bestBid > 0 && bestAsk >= bestBid, "Invalid public order book.");
+
+		var tickSize = Decimal(priceFilter.GetProperty("tickSize"));
+		var stepSize = Decimal(lotSize.GetProperty("stepSize"));
+		var minQty = Decimal(lotSize.GetProperty("minQty"));
+		var minNotional = minNotionalFilter.ValueKind == JsonValueKind.Undefined
+			? 10m
+			: Decimal(minNotionalFilter.TryGetProperty("minNotional", out var mn) ? mn : minNotionalFilter.GetProperty("notional"));
+
+		var price = FloorToStep(bestBid * 0.8m, tickSize);
+		var quantity = Math.Max(minQty, CeilingToStep((minNotional * 1.05m) / price, stepSize));
+		return (price, quantity);
 	}
 
 	private static async Task<JsonDocument> GetJson(HttpClient client, string uri)

@@ -2,6 +2,20 @@ namespace StockSharp.Binance.Native;
 
 class PusherClient : BaseLogReceiver
 {
+	internal static bool IsTransientDisconnect(Exception error)
+	{
+		for (var current = error; current != null; current = current.InnerException)
+		{
+			if (current is System.Net.WebSockets.WebSocketException or System.IO.IOException)
+				return true;
+		}
+
+		return false;
+	}
+
+	internal static string GetSpotAccountWebSocketUrl(bool isDemo)
+		=> $"wss://{(isDemo ? "ws-api.testnet.binance.vision" : "ws-api.binance.com:443")}/ws-api/v3";
+
 	private abstract class BasePusherClient : BaseLogReceiver
 	{
 		private readonly WebSocketClient _client;
@@ -50,17 +64,6 @@ class PusherClient : BaseLogReceiver
 				ReconnectAttempts = ((BinanceMessageAdapter)Client.Parent).ReConnectionSettings.ReAttemptCount,
 				WorkingTime = workingTime ?? throw new ArgumentNullException(nameof(workingTime)),
 			};
-		}
-
-		private static bool IsTransientDisconnect(Exception error)
-		{
-			for (var current = error; current != null; current = current.InnerException)
-			{
-				if (current is System.Net.WebSockets.WebSocketException or System.IO.IOException)
-					return true;
-			}
-
-			return false;
 		}
 
 		// to get readable name after obfuscation
@@ -514,6 +517,7 @@ class PusherClient : BaseLogReceiver
 	{
 		private readonly string _isolatedSymbol;
 		private readonly bool _useWebSocketApi;
+		private TaskCompletionSource _subscriptionResponse;
 
 		public AuthPusherClient(PusherClient parent, BinanceSections section, string isolatedSymbol, string path, string absoluteUrl = null)
 			: base(parent, parent._workingTime, section, path, absoluteUrl)
@@ -542,12 +546,26 @@ class PusherClient : BaseLogReceiver
 				.Digest()
 				.ToLowerInvariant();
 
-			await SendAsync(new
+			var response = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+			if (Interlocked.CompareExchange(ref _subscriptionResponse, response, null) is not null)
+				throw new InvalidOperationException("A user data subscription request is already pending.");
+
+			try
 			{
-				id = Guid.NewGuid().ToString(),
-				method = "userDataStream.subscribe.signature",
-				@params = new { apiKey, timestamp, signature },
-			}, cancellationToken);
+				await SendAsync(new
+				{
+					id = Guid.NewGuid().ToString(),
+					method = "userDataStream.subscribe.signature",
+					@params = new { apiKey, timestamp, signature },
+				}, cancellationToken);
+
+				await response.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+			}
+			finally
+			{
+				Interlocked.CompareExchange(ref _subscriptionResponse, null, response);
+			}
 		}
 
 		protected override async ValueTask OnParse(WebSocketMessage msg, CancellationToken cancellationToken)
@@ -560,10 +578,27 @@ class PusherClient : BaseLogReceiver
 					obj = obj.@event;
 				else
 				{
-					if (obj.status is not null && (int)obj.status != 200)
-						this.AddErrorLog("user data subscription failed: {0}", (string)obj.ToString());
-					else if (obj.status is not null)
-						this.AddInfoLog("user data subscription active");
+					if (obj.status is not null)
+					{
+						var status = (int)obj.status;
+
+						if (status == 200)
+						{
+							this.AddInfoLog("user data subscription active");
+							_subscriptionResponse?.TrySetResult();
+						}
+						else
+						{
+							var token = (JToken)obj;
+							var error = token["error"];
+							var exception = new InvalidOperationException(
+								$"User data subscription failed (status={status}, code={error?["code"]}, message={error?["msg"]}).");
+
+							this.AddErrorLog(exception);
+							_subscriptionResponse?.TrySetException(exception);
+						}
+					}
+
 					return;
 				}
 			}
@@ -855,8 +890,7 @@ class PusherClient : BaseLogReceiver
 			throw new InvalidOperationException("Spot account connection was not disconnected");
 
 		var adapter = (BinanceMessageAdapter)Parent;
-		var host = adapter.IsDemo ? "ws-api.testnet.binance.vision" : "ws-api.binance.com:443";
-		var client = new AuthPusherClient(this, BinanceSections.Spot, null, null, $"wss://{host}/ws-api/v3");
+		var client = new AuthPusherClient(this, BinanceSections.Spot, null, null, GetSpotAccountWebSocketUrl(adapter.IsDemo));
 		await client.ConnectAndSubscribe(cancellationToken);
 		_authClients.Add(key, client);
 	}
