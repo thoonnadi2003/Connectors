@@ -101,11 +101,13 @@ Binance coverage includes both a direct signed REST lifecycle and a connector-le
 
 ## Run locally
 
-Set `STOCKSHARP_LIVE_TESTS=true` and the variables for exactly the exchange being tested in the current process, then run one class. For example:
+Configure the variables for the selected exchange in either the current process or the Windows user environment, then use the secure runner. It enables the live-test opt-in only for its child test process, checks required variable names without printing values, and restores the original process environment afterward:
 
 ```powershell
-dotnet test DemoTrading.Tests/DemoTrading.Tests.csproj --configuration Release --filter "FullyQualifiedName~ByBitDemoTradingCycleTests"
+.\scripts\Run-DemoTradingTests.ps1 -Exchange bybit
 ```
+
+Use `-Exchange binance,bybit` for several configured exchanges or `-Exchange all` after all credentials are available. Add `-NoRestore` when dependencies have already been restored.
 
 Use the Windows Environment Variables settings or a secure secret manager to inject the values. Clear process variables after the run. Do not create a credential file in the repository. `.env`, `.env.*`, and `*.secrets` are ignored as a final defense, but ignored plaintext is still not recommended.
 
