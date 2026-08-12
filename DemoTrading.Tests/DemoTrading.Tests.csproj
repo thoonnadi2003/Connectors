@@ -8,6 +8,7 @@
     <ProjectReference Include="..\Deribit\Deribit.csproj" />
     <ProjectReference Include="..\Okex\Okex.csproj" />
     <Compile Include="..\Tests\DemoTradingTestSupport.cs" Link="DemoTradingTestSupport.cs" />
+    <Compile Include="..\Tests\DemoPublicEndpointTests.cs" Link="DemoPublicEndpointTests.cs" />
     <Compile Include="..\Tests\MarketDataTestHarness.cs" Link="MarketDataTestHarness.cs" />
     <Compile Include="..\Tests\BinanceRegressionTests.cs" Link="BinanceRegressionTests.cs" />
     <Compile Include="..\Tests\BinanceTradingCycleTests.cs" Link="BinanceTradingCycleTests.cs" />

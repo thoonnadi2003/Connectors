@@ -1,0 +1,37 @@
+name: Demo public endpoint smoke tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/binance-connector-trading-tests
+    paths:
+      - DemoTrading.Tests/**
+      - Tests/DemoPublicEndpointTests.cs
+      - Tests/DemoTradingTestSupport.cs
+      - scripts/Run-DemoPublicTests.ps1
+      - .github/workflows/demo-public-endpoints.yml
+
+permissions:
+  contents: read
+
+jobs:
+  public-endpoints:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout connectors branch
+        uses: actions/checkout@v4
+        with:
+          path: Connectors
+      - name: Checkout StockSharp core branch
+        uses: actions/checkout@v4
+        with:
+          repository: thoonnadi2003/StockSharp
+          ref: codex/stocksharp-orderbook-fixes
+          path: StockSharp (GitHub)
+          filter: blob:none
+      - name: Run credential-free public endpoint tests
+        shell: powershell
+        working-directory: Connectors
+        run: .\scripts\Run-DemoPublicTests.ps1 -Configuration Release

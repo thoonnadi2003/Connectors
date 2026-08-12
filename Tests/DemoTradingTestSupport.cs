@@ -25,6 +25,12 @@ internal static class DemoTradingTestSupport
 			Assert.Inconclusive("Set STOCKSHARP_LIVE_TESTS=true to run live integration tests.");
 	}
 
+	public static void RequirePublicTests()
+	{
+		if (!string.Equals(Environment.GetEnvironmentVariable("STOCKSHARP_PUBLIC_TESTS"), "true", StringComparison.OrdinalIgnoreCase))
+			Assert.Inconclusive("Set STOCKSHARP_PUBLIC_TESTS=true to run public endpoint integration tests.");
+	}
+
 	public static string EnvironmentVariable(string name)
 	{
 		var value = Environment.GetEnvironmentVariable(name);

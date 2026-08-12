@@ -109,6 +109,14 @@ Configure the variables for the selected exchange in either the current process 
 
 Use `-Exchange binance,bybit` for several configured exchanges or `-Exchange all` after all credentials are available. Add `-NoRestore` when dependencies have already been restored.
 
+Credential-free public market-data smoke tests are available for all six exchanges:
+
+```powershell
+.\scripts\Run-DemoPublicTests.ps1
+```
+
+These tests verify that every order-book endpoint is reachable and still returns the response fields needed by its authenticated trading cycle. The **Demo public endpoint smoke tests** workflow runs them automatically on relevant branch pushes.
+
 Use the Windows Environment Variables settings or a secure secret manager to inject the values. Clear process variables after the run. Do not create a credential file in the repository. `.env`, `.env.*`, and `*.secrets` are ignored as a final defense, but ignored plaintext is still not recommended.
 
 ## Run in GitHub Actions
