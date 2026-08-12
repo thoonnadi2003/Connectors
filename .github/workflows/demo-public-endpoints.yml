@@ -53,7 +53,7 @@ jobs:
         exchange: [binance, bybit]
     steps:
       - name: Checkout connectors branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: Connectors
       - name: Checkout StockSharp core branch

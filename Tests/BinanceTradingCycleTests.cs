@@ -37,6 +37,7 @@ public class BinanceTradingCycleTests
 
 		using var client = new HttpClient { BaseAddress = new(_baseUrl) };
 		client.DefaultRequestHeaders.Add("X-MBX-APIKEY", key);
+		var serverTimeOffset = await GetServerTimeOffset(client);
 
 		var exchangeInfo = await GetJson(client, $"/api/v3/exchangeInfo?symbol={_symbol}");
 		var symbol = exchangeInfo.RootElement.GetProperty("symbols")[0];
@@ -52,7 +53,7 @@ public class BinanceTradingCycleTests
 		var bestAsk = Decimal(depth.RootElement.GetProperty("asks")[0][0]);
 		Assert.IsTrue(bestBid > 0 && bestAsk >= bestBid, "Invalid public order book.");
 
-		await GetSignedJson(client, HttpMethod.Get, "/api/v3/account", [], secret);
+		await GetSignedJson(client, HttpMethod.Get, "/api/v3/account", [], secret, serverTimeOffset);
 
 		var tickSize = Decimal(priceFilter.GetProperty("tickSize"));
 		var stepSize = Decimal(lotSize.GetProperty("stepSize"));
@@ -74,13 +75,13 @@ public class BinanceTradingCycleTests
 				("symbol", _symbol), ("side", "BUY"), ("type", "LIMIT"),
 				("timeInForce", "GTC"), ("quantity", Format(quantity)), ("price", Format(price)),
 				("newOrderRespType", "RESULT")
-			], secret);
+			], secret, serverTimeOffset);
 
 			orderId = created.RootElement.GetProperty("orderId").GetInt64();
 			Assert.IsTrue(orderId > 0, "Testnet did not return an order id.");
 
 			var queried = await GetSignedJson(client, HttpMethod.Get, "/api/v3/order",
-			[("symbol", _symbol), ("orderId", orderId.Value.ToString(CultureInfo.InvariantCulture))], secret);
+			[("symbol", _symbol), ("orderId", orderId.Value.ToString(CultureInfo.InvariantCulture))], secret, serverTimeOffset);
 			Assert.AreEqual(orderId.Value, queried.RootElement.GetProperty("orderId").GetInt64());
 		}
 		finally
@@ -88,7 +89,7 @@ public class BinanceTradingCycleTests
 			if (orderId is not null)
 			{
 				var canceled = await GetSignedJson(client, HttpMethod.Delete, "/api/v3/order",
-				[("symbol", _symbol), ("orderId", orderId.Value.ToString(CultureInfo.InvariantCulture))], secret);
+				[("symbol", _symbol), ("orderId", orderId.Value.ToString(CultureInfo.InvariantCulture))], secret, serverTimeOffset);
 				Assert.AreEqual("CANCELED", canceled.RootElement.GetProperty("status").GetString());
 			}
 		}
@@ -103,7 +104,7 @@ public class BinanceTradingCycleTests
 		using var client = new HttpClient { BaseAddress = new(_baseUrl) };
 		var (price, quantity) = await GetSafeOrderAsync(client);
 
-		var adapter = new BinanceMessageAdapter(new IncrementalIdGenerator())
+		var adapter = new BinanceMessageAdapter(new MillisecondIncrementalIdGenerator())
 		{
 			Key = key.Secure(),
 			Secret = secret.Secure(),
@@ -273,17 +274,32 @@ public class BinanceTradingCycleTests
 		return JsonDocument.Parse(body);
 	}
 
-	private static async Task<JsonDocument> GetSignedJson(HttpClient client, HttpMethod method, string path,
-		IEnumerable<(string key, string value)> parameters, string secret)
+	private static async Task<long> GetServerTimeOffset(HttpClient client)
 	{
-		var values = parameters.Append(("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)));
+		var before = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+		using var time = await GetJson(client, "/api/v3/time");
+		var after = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+		var localMidpoint = before + ((after - before) / 2);
+		return time.RootElement.GetProperty("serverTime").GetInt64() - localMidpoint;
+	}
+
+	private static async Task<JsonDocument> GetSignedJson(HttpClient client, HttpMethod method, string path,
+		IEnumerable<(string key, string value)> parameters, string secret, long serverTimeOffset)
+	{
+		var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + serverTimeOffset;
+		var values = parameters.Append(("timestamp", timestamp.ToString(CultureInfo.InvariantCulture)));
 		var query = string.Join("&", values.Select(p => $"{Uri.EscapeDataString(p.Item1)}={Uri.EscapeDataString(p.Item2)}"));
 		var signature = Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(query))).ToLowerInvariant();
 		using var request = new HttpRequestMessage(method, $"{path}?{query}&signature={signature}");
 		using var response = await client.SendAsync(request);
 		var body = await response.Content.ReadAsStringAsync();
 		if (!response.IsSuccessStatusCode)
-			Assert.Fail($"Binance Testnet request failed with HTTP {(int)response.StatusCode}.");
+		{
+			using var error = JsonDocument.Parse(body);
+			var code = error.RootElement.TryGetProperty("code", out var codeValue) ? codeValue.ToString() : "unknown";
+			var message = error.RootElement.TryGetProperty("msg", out var messageValue) ? messageValue.GetString() : "unknown";
+			Assert.Fail($"Binance Testnet request failed with HTTP {(int)response.StatusCode} (code={code}, message={message}).");
+		}
 		return JsonDocument.Parse(body);
 	}
 

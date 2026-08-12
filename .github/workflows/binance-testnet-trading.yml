@@ -26,11 +26,11 @@ jobs:
       BINANCE_TESTNET_API_SECRET: ${{ secrets.BINANCE_TESTNET_API_SECRET }}
     steps:
       - name: Checkout connectors branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: Connectors
       - name: Checkout StockSharp core branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: thoonnadi2003/StockSharp
           ref: codex/stocksharp-orderbook-fixes

@@ -539,7 +539,7 @@ class PusherClient : BaseLogReceiver
 
 			var adapter = (BinanceMessageAdapter)Client.Parent;
 			var apiKey = adapter.Key.UnSecure();
-			var timestamp = (long)DateTime.UtcNow.ToUnix(false);
+			var timestamp = adapter.GetCurrentTimestamp();
 			var payload = $"apiKey={apiKey}&timestamp={timestamp}";
 			var signature = new System.Security.Cryptography.HMACSHA256(adapter.Secret.UnSecure().UTF8())
 				.ComputeHash(payload.UTF8())

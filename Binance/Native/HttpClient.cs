@@ -60,6 +60,9 @@ class HttpClient : BaseLogReceiver
 		return ((long)res.serverTime).FromUnix(false);
 	}
 
+	public long GetCurrentTimestamp()
+		=> (long)(DateTime.UtcNow + _serverTimeDiff).ToUnix(false);
+
 	public async Task<IEnumerable<Symbol>> GetSymbols(BinanceSections section, CancellationToken cancellationToken)
 	{
 		dynamic res = await MakeRequest<object>(CreateUrl(section, "exchangeInfo"), CreateRequest(Method.Get), cancellationToken);
@@ -516,7 +519,7 @@ class HttpClient : BaseLogReceiver
 		if (request == null)
 			throw new ArgumentNullException(nameof(request));
 
-		return request.AddParameter("timestamp", (long)(DateTime.UtcNow + _serverTimeDiff).ToUnix(false), type);
+		return request.AddParameter("timestamp", GetCurrentTimestamp(), type);
 	}
 
 	private void ApplyKey(RestRequest request)

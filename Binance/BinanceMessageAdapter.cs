@@ -12,6 +12,9 @@ public partial class BinanceMessageAdapter
 
 	private static readonly TimeSpan _listenKeyUpdateInterval = TimeSpan.FromMinutes(30);
 
+	internal long GetCurrentTimestamp()
+		=> _httpClient?.GetCurrentTimestamp() ?? (long)DateTime.UtcNow.ToUnix(false);
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="BinanceMessageAdapter"/>.
 	/// </summary>
