@@ -16,13 +16,13 @@ permissions:
   contents: read
 
 jobs:
-  public-endpoints:
+  hosted-endpoints:
     runs-on: windows-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        exchange: [binance, bybit, okx, bitmex, deribit, bitget]
+        exchange: [okx, bitmex, deribit, bitget]
     steps:
       - name: Checkout connectors branch
         uses: actions/checkout@v6
@@ -40,6 +40,30 @@ jobs:
         with:
           dotnet-version: 10.0.302
       - name: Run credential-free public endpoint tests
+        shell: powershell
+        working-directory: Connectors
+        run: .\scripts\Run-DemoPublicTests.ps1 -Exchange '${{ matrix.exchange }}' -Configuration Release
+
+  restricted-endpoints:
+    runs-on: [self-hosted, Windows, X64, stocksharp-binance]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        exchange: [binance, bybit]
+    steps:
+      - name: Checkout connectors branch
+        uses: actions/checkout@v4
+        with:
+          path: Connectors
+      - name: Checkout StockSharp core branch
+        uses: actions/checkout@v4
+        with:
+          repository: thoonnadi2003/StockSharp
+          ref: codex/stocksharp-orderbook-fixes
+          path: StockSharp (GitHub)
+          filter: blob:none
+      - name: Run credential-free restricted endpoint test
         shell: powershell
         working-directory: Connectors
         run: .\scripts\Run-DemoPublicTests.ps1 -Exchange '${{ matrix.exchange }}' -Configuration Release

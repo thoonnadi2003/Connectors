@@ -5,6 +5,13 @@ on:
   push:
     branches:
       - codex/binance-connector-trading-tests
+    paths:
+      - Binance/**
+      - Binance.Tests/**
+      - Tests/BinanceRegressionTests.cs
+      - Tests/BinanceTradingCycleTests.cs
+      - Tests/MarketDataTestHarness.cs
+      - .github/workflows/binance-testnet-trading.yml
 
 permissions:
   contents: read
