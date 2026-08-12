@@ -19,6 +19,10 @@ jobs:
   public-endpoints:
     runs-on: windows-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        exchange: [binance, bybit, okx, bitmex, deribit, bitget]
     steps:
       - name: Checkout connectors branch
         uses: actions/checkout@v6
@@ -38,4 +42,4 @@ jobs:
       - name: Run credential-free public endpoint tests
         shell: powershell
         working-directory: Connectors
-        run: .\scripts\Run-DemoPublicTests.ps1 -Configuration Release
+        run: .\scripts\Run-DemoPublicTests.ps1 -Exchange '${{ matrix.exchange }}' -Configuration Release

@@ -115,7 +115,7 @@ Credential-free public market-data smoke tests are available for all six exchang
 .\scripts\Run-DemoPublicTests.ps1
 ```
 
-These tests verify that every order-book endpoint is reachable and still returns the response fields needed by its authenticated trading cycle. The **Demo public endpoint smoke tests** workflow runs them automatically on relevant branch pushes.
+Use `-Exchange bybit` to run one endpoint. These tests verify that every order-book endpoint is reachable and still returns the response fields needed by its authenticated trading cycle. The **Demo public endpoint smoke tests** workflow runs each exchange as a separate matrix job on relevant branch pushes.
 
 Use the Windows Environment Variables settings or a secure secret manager to inject the values. Clear process variables after the run. Do not create a credential file in the repository. `.env`, `.env.*`, and `*.secrets` are ignored as a final defense, but ignored plaintext is still not recommended.
 

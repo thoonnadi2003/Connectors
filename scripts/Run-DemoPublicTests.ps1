@@ -1,6 +1,10 @@
 [CmdletBinding()]
 param(
 	[Parameter()]
+	[ValidateSet('binance', 'bybit', 'okx', 'bitmex', 'deribit', 'bitget', 'all')]
+	[string[]] $Exchange = @('all'),
+
+	[Parameter()]
 	[ValidateSet('Debug', 'Release')]
 	[string] $Configuration = 'Release',
 
@@ -11,9 +15,19 @@ param(
 $ErrorActionPreference = 'Stop'
 $projectPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'DemoTrading.Tests\DemoTrading.Tests.csproj'
 $originalSetting = [Environment]::GetEnvironmentVariable('STOCKSHARP_PUBLIC_TESTS', 'Process')
+$tests = [ordered]@{
+	binance = 'BinanceSpotTestnetOrderBook'
+	bybit = 'BybitDemoOrderBook'
+	okx = 'OkxPublicOrderBook'
+	bitmex = 'BitmexTestnetOrderBook'
+	deribit = 'DeribitTestnetOrderBook'
+	bitget = 'BitgetPublicOrderBook'
+}
+$selected = if ($Exchange -contains 'all') { @($tests.Keys) } else { @($Exchange | Select-Object -Unique) }
 
 try {
 	[Environment]::SetEnvironmentVariable('STOCKSHARP_PUBLIC_TESTS', 'true', 'Process')
+	$filter = ($selected | ForEach-Object { "FullyQualifiedName~DemoPublicEndpointTests.$($tests[$_])" }) -join '|'
 
 	$arguments = @(
 		'test'
@@ -21,7 +35,7 @@ try {
 		'--configuration'
 		$Configuration
 		'--filter'
-		'FullyQualifiedName~DemoPublicEndpointTests'
+		$filter
 	)
 
 	if ($NoRestore) {
