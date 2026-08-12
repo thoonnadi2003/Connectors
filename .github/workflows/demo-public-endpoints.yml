@@ -21,16 +21,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout connectors branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: Connectors
       - name: Checkout StockSharp core branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: thoonnadi2003/StockSharp
           ref: codex/stocksharp-orderbook-fixes
           path: StockSharp (GitHub)
           filter: blob:none
+      - name: Set up .NET 10 SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.302
       - name: Run credential-free public endpoint tests
         shell: powershell
         working-directory: Connectors
