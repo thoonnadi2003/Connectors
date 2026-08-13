@@ -101,6 +101,23 @@ Binance coverage includes both a direct signed REST lifecycle and a connector-le
 
 ## Run locally
 
+Check which exchanges are configured without printing credential values:
+
+```powershell
+.\scripts\Manage-DemoTradingCredentials.ps1 -Action Status
+```
+
+After creating a demo/testnet API key on an exchange, save it from an interactive
+terminal. Input is hidden and no credential value is written to the console:
+
+```powershell
+.\scripts\Manage-DemoTradingCredentials.ps1 -Action Set -Exchange deribit
+```
+
+Replace `deribit` with `bybit`, `okx`, `bitmex`, or `bitget` as appropriate.
+To remove credentials for an exchange later, run `-Action Clear -Exchange NAME -Force`.
+Never pass credential values as command-line arguments.
+
 Configure the variables for the selected exchange in either the current process or the Windows user environment, then use the secure runner. It enables the live-test opt-in only for its child test process, checks required variable names without printing values, and restores the original process environment afterward:
 
 ```powershell
