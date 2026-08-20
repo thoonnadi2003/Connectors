@@ -73,7 +73,7 @@ switch ($Action) {
 
 			foreach ($variable in $config[$name]) {
 				$secureValue = Read-Host -Prompt $variable -AsSecureString
-				$value = Get-PlainText $secureValue
+				$value = (Get-PlainText $secureValue).Trim()
 
 				try {
 					if ([string]::IsNullOrWhiteSpace($value)) {

@@ -2,6 +2,7 @@ namespace StockSharp.Connectors.Tests;
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -26,6 +27,7 @@ public class ByBitDemoTradingCycleTests
 		var secret = EnvironmentVariable("BYBIT_DEMO_API_SECRET");
 
 		using var client = new HttpClient { BaseAddress = new("https://api-demo.bybit.com") };
+		var serverTimeOffset = await GetServerTimeOffset(client);
 		using var instrumentResponse = await SendJson(client, HttpMethod.Get,
 			$"/v5/market/instruments-info?category=spot&symbol={_symbol}", string.Empty, [], "Bybit Demo");
 		RequireSuccess(instrumentResponse.RootElement);
@@ -40,7 +42,7 @@ public class ByBitDemoTradingCycleTests
 		Assert.IsTrue(bestBid > 0 && bestAsk >= bestBid, "Invalid Bybit Demo order book.");
 
 		using var wallet = await SendSigned(client, HttpMethod.Get,
-			"/v5/account/wallet-balance?accountType=UNIFIED", string.Empty, key, secret);
+			"/v5/account/wallet-balance?accountType=UNIFIED", string.Empty, key, secret, serverTimeOffset);
 		RequireSuccess(wallet.RootElement);
 
 		var priceFilter = instrument.GetProperty("priceFilter");
@@ -68,13 +70,13 @@ public class ByBitDemoTradingCycleTests
 				orderLinkId = clientOrderId,
 			});
 
-			using var created = await SendSigned(client, HttpMethod.Post, "/v5/order/create", body, key, secret);
+			using var created = await SendSigned(client, HttpMethod.Post, "/v5/order/create", body, key, secret, serverTimeOffset);
 			RequireSuccess(created.RootElement);
 			orderId = created.RootElement.GetProperty("result").GetProperty("orderId").GetString();
 			Assert.IsFalse(string.IsNullOrWhiteSpace(orderId), "Bybit Demo did not return an order id.");
 
 			using var queried = await SendSigned(client, HttpMethod.Get,
-				$"/v5/order/realtime?category=spot&orderId={Uri.EscapeDataString(orderId!)}", string.Empty, key, secret);
+				$"/v5/order/realtime?category=spot&orderId={Uri.EscapeDataString(orderId!)}", string.Empty, key, secret, serverTimeOffset);
 			RequireSuccess(queried.RootElement);
 			Assert.AreEqual(orderId, queried.RootElement.GetProperty("result").GetProperty("list")[0].GetProperty("orderId").GetString());
 		}
@@ -83,17 +85,18 @@ public class ByBitDemoTradingCycleTests
 			if (!string.IsNullOrWhiteSpace(orderId))
 			{
 				var cancelBody = Json(new { category = "spot", symbol = _symbol, orderId });
-				using var canceled = await SendSigned(client, HttpMethod.Post, "/v5/order/cancel", cancelBody, key, secret);
+				using var canceled = await SendSigned(client, HttpMethod.Post, "/v5/order/cancel", cancelBody, key, secret, serverTimeOffset);
 				RequireSuccess(canceled.RootElement);
 			}
 		}
 	}
 
 	private static async Task<JsonDocument> SendSigned(HttpClient client, HttpMethod method, string path,
-		string body, string key, string secret)
+		string body, string key, string secret, long serverTimeOffset)
 	{
-		var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-		const string recvWindow = "5000";
+		var timestamp = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + serverTimeOffset - 500)
+			.ToString(CultureInfo.InvariantCulture);
+		const string recvWindow = "10000";
 		var signedValue = method == HttpMethod.Get && path.Contains('?') ? path[(path.IndexOf('?') + 1)..] : body;
 		var signature = HmacSha256Hex(secret, timestamp + key + recvWindow + signedValue);
 		var headers = new List<(string, string)>
@@ -104,6 +107,19 @@ public class ByBitDemoTradingCycleTests
 		return await SendJson(client, method, path, body, headers, "Bybit Demo");
 	}
 
+	private static async Task<long> GetServerTimeOffset(HttpClient client)
+	{
+		var before = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+		using var response = await SendJson(client, HttpMethod.Get, "/v5/market/time",
+			string.Empty, [], "Bybit Demo");
+		RequireSuccess(response.RootElement);
+		var after = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+		var serverTime = long.Parse(response.RootElement.GetProperty("result")
+			.GetProperty("timeNano").GetString()!, CultureInfo.InvariantCulture) / 1_000_000;
+		return serverTime - (before + ((after - before) / 2));
+	}
+
 	private static void RequireSuccess(JsonElement root)
-		=> Assert.AreEqual(0, root.GetProperty("retCode").GetInt32(), "Bybit Demo rejected the request.");
+		=> Assert.AreEqual(0, root.GetProperty("retCode").GetInt32(),
+			$"Bybit Demo rejected the request: {root.GetProperty("retMsg").GetString()}.");
 }
