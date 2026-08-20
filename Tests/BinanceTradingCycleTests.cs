@@ -286,8 +286,12 @@ public class BinanceTradingCycleTests
 	private static async Task<JsonDocument> GetSignedJson(HttpClient client, HttpMethod method, string path,
 		IEnumerable<(string key, string value)> parameters, string secret, long serverTimeOffset)
 	{
-		var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + serverTimeOffset;
-		var values = parameters.Append(("timestamp", timestamp.ToString(CultureInfo.InvariantCulture)));
+		// Binance rejects timestamps more than 1000 ms ahead of its clock. Keep a
+		// small backward safety margin for variable testnet latency and clock jitter.
+		var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + serverTimeOffset - 1000;
+		var values = parameters
+			.Append(("recvWindow", "10000"))
+			.Append(("timestamp", timestamp.ToString(CultureInfo.InvariantCulture)));
 		var query = string.Join("&", values.Select(p => $"{Uri.EscapeDataString(p.Item1)}={Uri.EscapeDataString(p.Item2)}"));
 		var signature = Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(query))).ToLowerInvariant();
 		using var request = new HttpRequestMessage(method, $"{path}?{query}&signature={signature}");
