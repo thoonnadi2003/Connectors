@@ -67,6 +67,12 @@ public class PhemexTestnetTradingCycleTests
 			BoardCode = BoardCodes.PhemexFutures,
 		};
 		var registerId = adapter.TransactionIdGenerator.GetNextId();
+		var orderCondition = new PhemexOrderCondition
+		{
+			// Testnet accounts can use Hedge Mode. In that mode Phemex rejects the
+			// one-way "Merged" side with TE_ERR_INCONSISTENT_POS_MODE.
+			PositionSide = PhemexPositionSides.Long,
+		};
 		string orderId = null;
 		var canceled = false;
 
@@ -86,6 +92,7 @@ public class PhemexTestnetTradingCycleTests
 				OrderType = OrderTypes.Limit,
 				TimeInForce = TimeInForce.PutInQueue,
 				PostOnly = true,
+				Condition = orderCondition,
 			}, testSource.Token);
 
 			var registered = await WaitForExecutionAsync(registeredReader, registerId,
@@ -104,6 +111,7 @@ public class PhemexTestnetTradingCycleTests
 				OriginalTransactionId = registerId,
 				SecurityId = securityId,
 				OrderStringId = orderId,
+				Condition = orderCondition,
 			}, testSource.Token);
 
 			var cancellation = await WaitForExecutionAsync(canceledReader, cancelId,
@@ -126,6 +134,7 @@ public class PhemexTestnetTradingCycleTests
 						OriginalTransactionId = registerId,
 						SecurityId = securityId,
 						OrderStringId = orderId,
+						Condition = orderCondition,
 					}, CancellationToken.None);
 					await Task.Delay(TimeSpan.FromSeconds(2), CancellationToken.None);
 				}
