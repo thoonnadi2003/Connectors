@@ -58,7 +58,23 @@ internal static class DemoTradingTestSupport
 		var responseBody = await response.Content.ReadAsStringAsync();
 
 		if (!response.IsSuccessStatusCode)
-			Assert.Fail($"{exchange} request failed with HTTP {(int)response.StatusCode}.");
+		{
+			var details = string.Empty;
+			try
+			{
+				using var error = JsonDocument.Parse(responseBody);
+				var root = error.RootElement;
+				var code = FirstProperty(root, "code", "retCode", "error_code");
+				var message = FirstProperty(root, "msg", "message", "retMsg", "error");
+				if (!string.IsNullOrEmpty(code) || !string.IsNullOrEmpty(message))
+					details = $" (code={code ?? "unknown"}, message={message ?? "unknown"})";
+			}
+			catch (JsonException)
+			{
+			}
+
+			Assert.Fail($"{exchange} request failed with HTTP {(int)response.StatusCode}{details}.");
+		}
 
 		try
 		{
@@ -69,6 +85,20 @@ internal static class DemoTradingTestSupport
 			Assert.Fail($"{exchange} returned a non-JSON response.");
 			throw;
 		}
+	}
+
+	private static string FirstProperty(JsonElement root, params string[] names)
+	{
+		if (root.ValueKind != JsonValueKind.Object)
+			return null;
+
+		foreach (var name in names)
+		{
+			if (root.TryGetProperty(name, out var value))
+				return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+		}
+
+		return null;
 	}
 
 	public static string HmacSha256Hex(string secret, string payload)
