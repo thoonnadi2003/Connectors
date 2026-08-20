@@ -77,6 +77,15 @@ internal static class DemoTradingTestSupport
 	public static string HmacSha256Base64(string secret, string payload)
 		=> Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(payload)));
 
+	public static string HmacSha384Hex(string secret, string payload)
+		=> Convert.ToHexString(HMACSHA384.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+
+	public static string HmacSha512Hex(string secret, string payload)
+		=> Convert.ToHexString(HMACSHA512.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+
+	public static string Sha512Hex(string payload)
+		=> Convert.ToHexString(SHA512.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+
 	public static decimal Decimal(JsonElement value)
 		=> value.ValueKind == JsonValueKind.Number
 			? value.GetDecimal()

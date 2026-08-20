@@ -106,6 +106,83 @@ public class DemoPublicEndpointTests
 		AssertBook(data.GetProperty("bids"), data.GetProperty("asks"), "Bitget");
 	}
 
+	[TestMethod]
+	[Timeout(30000)]
+	public async Task GateFuturesTestnetOrderBook()
+	{
+		RequirePublicTests();
+		using var client = Client("https://api-testnet.gateapi.io");
+		using var response = await SendJson(client, HttpMethod.Get,
+			"/api/v4/futures/usdt/order_book?contract=BTC_USDT&limit=5", string.Empty, [], "Gate Futures Testnet");
+
+		AssertObjectBook(response.RootElement.GetProperty("bids"), response.RootElement.GetProperty("asks"),
+			"p", "Gate Futures Testnet", requireUncrossed: true);
+	}
+
+	[TestMethod]
+	[Timeout(30000)]
+	public async Task PhemexTestnetOrderBook()
+	{
+		RequirePublicTests();
+		using var client = Client("https://testnet-api.phemex.com");
+		using var response = await SendJson(client, HttpMethod.Get,
+			"/md/v2/orderbook?symbol=BTCUSDT", string.Empty, [], "Phemex Testnet");
+
+		Assert.AreEqual(JsonValueKind.Null, response.RootElement.GetProperty("error").ValueKind,
+			"Phemex Testnet rejected the request.");
+		var result = response.RootElement.GetProperty("result");
+		AssertBook(result.GetProperty("orderbook_p").GetProperty("bids"),
+			result.GetProperty("orderbook_p").GetProperty("asks"), "Phemex Testnet");
+	}
+
+	[TestMethod]
+	[Timeout(30000)]
+	public async Task BloFinDemoOrderBook()
+	{
+		RequirePublicTests();
+		using var client = Client("https://demo-trading-openapi.blofin.com");
+		using var request = new HttpRequestMessage(HttpMethod.Get,
+			"/api/v1/market/books?instId=BTC-USDT&size=5");
+		request.Headers.TryAddWithoutValidation("User-Agent", "StockSharp-DemoTradingTests/1.0");
+		using var rawResponse = await client.SendAsync(request);
+		if ((int)rawResponse.StatusCode == 403)
+			Assert.Inconclusive("BloFin Demo blocks this runner with HTTP 403; retry from an allowed region/network.");
+		var body = await rawResponse.Content.ReadAsStringAsync();
+		Assert.IsTrue(rawResponse.IsSuccessStatusCode, $"BloFin Demo request failed with HTTP {(int)rawResponse.StatusCode}.");
+		using var response = JsonDocument.Parse(body);
+
+		Assert.AreEqual("0", response.RootElement.GetProperty("code").GetString(), "BloFin Demo rejected the request.");
+		var data = response.RootElement.GetProperty("data");
+		Assert.IsTrue(data.GetArrayLength() > 0, "BloFin Demo returned no order books.");
+		AssertBook(data[0].GetProperty("bids"), data[0].GetProperty("asks"), "BloFin Demo");
+	}
+
+	[TestMethod]
+	[Timeout(30000)]
+	public async Task GeminiSandboxOrderBook()
+	{
+		RequirePublicTests();
+		using var client = Client("https://api.sandbox.gemini.com");
+		using var response = await SendJson(client, HttpMethod.Get,
+			"/v1/book/btcusd?limit_bids=5&limit_asks=5", string.Empty, [], "Gemini Sandbox");
+
+		AssertObjectBook(response.RootElement.GetProperty("bids"), response.RootElement.GetProperty("asks"),
+			"price", "Gemini Sandbox", requireUncrossed: false);
+	}
+
+	[TestMethod]
+	[Timeout(30000)]
+	public async Task CoinbaseStaticSandboxResponds()
+	{
+		RequirePublicTests();
+		using var client = Client("https://api-sandbox.coinbase.com");
+		using var response = await SendJson(client, HttpMethod.Get,
+			"/api/v3/brokerage/accounts", string.Empty, [], "Coinbase Static Sandbox");
+
+		Assert.IsTrue(response.RootElement.TryGetProperty("accounts", out _),
+			"Coinbase Static Sandbox response format changed.");
+	}
+
 	private static HttpClient Client(string baseAddress)
 		=> new()
 		{
@@ -121,5 +198,18 @@ public class DemoPublicEndpointTests
 		var bestBid = Decimal(bids[0][0]);
 		var bestAsk = Decimal(asks[0][0]);
 		Assert.IsTrue(bestBid > 0 && bestAsk >= bestBid, $"{exchange} returned an invalid order book.");
+	}
+
+	private static void AssertObjectBook(JsonElement bids, JsonElement asks, string priceProperty,
+		string exchange, bool requireUncrossed)
+	{
+		Assert.IsTrue(bids.GetArrayLength() > 0, $"{exchange} returned no bids.");
+		Assert.IsTrue(asks.GetArrayLength() > 0, $"{exchange} returned no asks.");
+
+		var bestBid = Decimal(bids[0].GetProperty(priceProperty));
+		var bestAsk = Decimal(asks[0].GetProperty(priceProperty));
+		Assert.IsTrue(bestBid > 0 && bestAsk > 0, $"{exchange} returned non-positive prices.");
+		if (requireUncrossed)
+			Assert.IsTrue(bestAsk >= bestBid, $"{exchange} returned a crossed order book.");
 	}
 }

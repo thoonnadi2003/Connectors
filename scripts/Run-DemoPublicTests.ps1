@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
 	[Parameter()]
-	[ValidateSet('binance', 'bybit', 'okx', 'bitmex', 'deribit', 'bitget', 'all')]
+	[ValidateSet('binance', 'bybit', 'okx', 'bitmex', 'deribit', 'bitget', 'gate', 'phemex', 'blofin', 'gemini', 'coinbase', 'all')]
 	[string[]] $Exchange = @('all'),
 
 	[Parameter()]
@@ -22,6 +22,11 @@ $tests = [ordered]@{
 	bitmex = 'BitmexTestnetOrderBook'
 	deribit = 'DeribitTestnetOrderBook'
 	bitget = 'BitgetPublicOrderBook'
+	gate = 'GateFuturesTestnetOrderBook'
+	phemex = 'PhemexTestnetOrderBook'
+	blofin = 'BloFinDemoOrderBook'
+	gemini = 'GeminiSandboxOrderBook'
+	coinbase = 'CoinbaseStaticSandboxResponds'
 }
 $selected = if ($Exchange -contains 'all') { @($tests.Keys) } else { @($Exchange | Select-Object -Unique) }
 

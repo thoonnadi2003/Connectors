@@ -6,6 +6,8 @@
     <ProjectReference Include="..\Bitmex\Bitmex.csproj" />
     <ProjectReference Include="..\ByBit\ByBit.csproj" />
     <ProjectReference Include="..\Deribit\Deribit.csproj" />
+	<ProjectReference Include="..\GateIO\GateIO.csproj" />
+	<ProjectReference Include="..\Gemini\Gemini.csproj" />
     <ProjectReference Include="..\Okex\Okex.csproj" />
     <Compile Include="..\Tests\DemoTradingTestSupport.cs" Link="DemoTradingTestSupport.cs" />
     <Compile Include="..\Tests\DemoPublicEndpointTests.cs" Link="DemoPublicEndpointTests.cs" />
@@ -18,5 +20,8 @@
     <Compile Include="..\Tests\DeribitTestnetTradingCycleTests.cs" Link="DeribitTestnetTradingCycleTests.cs" />
     <Compile Include="..\Tests\BitgetDemoTradingCycleTests.cs" Link="BitgetDemoTradingCycleTests.cs" />
     <Compile Include="..\Tests\BitgetAuthenticationTests.cs" Link="BitgetAuthenticationTests.cs" />
+    <Compile Include="..\Tests\FxcmDemoAuthenticationTests.cs" Link="FxcmDemoAuthenticationTests.cs" />
+	<Compile Include="..\Tests\GateTestnetTradingCycleTests.cs" Link="GateTestnetTradingCycleTests.cs" />
+	<Compile Include="..\Tests\GeminiSandboxTradingCycleTests.cs" Link="GeminiSandboxTradingCycleTests.cs" />
   </ItemGroup>
 </Project>

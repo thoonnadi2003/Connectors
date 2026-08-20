@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
 	[Parameter()]
-	[ValidateSet('binance', 'bybit', 'okx', 'bitmex', 'deribit', 'bitget', 'all')]
+	[ValidateSet('binance', 'bybit', 'okx', 'bitmex', 'deribit', 'bitget', 'fxcm', 'gate', 'phemex', 'blofin', 'deriv', 'gemini', 'all')]
 	[string[]] $Exchange = @('all'),
 
 	[Parameter()]
@@ -21,6 +21,12 @@ $config = [ordered]@{
 	bitmex = @('BITMEX_TESTNET_API_KEY', 'BITMEX_TESTNET_API_SECRET')
 	deribit = @('DERIBIT_TESTNET_CLIENT_ID', 'DERIBIT_TESTNET_CLIENT_SECRET')
 	bitget = @('BITGET_DEMO_API_KEY', 'BITGET_DEMO_API_SECRET', 'BITGET_DEMO_API_PASSPHRASE')
+	fxcm = @('FXCM_DEMO_LOGIN', 'FXCM_DEMO_PASSWORD')
+	gate = @('GATE_TESTNET_API_KEY', 'GATE_TESTNET_API_SECRET')
+	phemex = @('PHEMEX_TESTNET_API_KEY', 'PHEMEX_TESTNET_API_SECRET')
+	blofin = @('BLOFIN_DEMO_API_KEY', 'BLOFIN_DEMO_API_SECRET', 'BLOFIN_DEMO_API_PASSPHRASE')
+	deriv = @('DERIV_DEMO_APP_ID', 'DERIV_DEMO_API_TOKEN')
+	gemini = @('GEMINI_SANDBOX_API_KEY', 'GEMINI_SANDBOX_API_SECRET')
 }
 
 $selected = if ($Exchange -contains 'all') {
