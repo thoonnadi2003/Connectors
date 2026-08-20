@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
 	[Parameter()]
-	[ValidateSet('binance', 'bybit', 'okx', 'bitmex', 'deribit', 'bitget', 'fxcm', 'gate', 'gemini', 'phemex', 'blofin', 'all')]
+	[ValidateSet('binance', 'bybit', 'okx', 'bitmex', 'deribit', 'bitget', 'fxcm', 'gate', 'gemini', 'phemex', 'blofin', 'deriv', 'all')]
 	[string[]] $Exchange = @('binance'),
 
 	[Parameter()]
@@ -27,6 +27,7 @@ $config = [ordered]@{
 	gemini = @{ Test = 'GeminiSandboxTradingCycleTests'; Vars = @('GEMINI_SANDBOX_API_KEY', 'GEMINI_SANDBOX_API_SECRET') }
 	phemex = @{ Test = 'PhemexTestnetTradingCycleTests'; Vars = @('PHEMEX_TESTNET_API_KEY', 'PHEMEX_TESTNET_API_SECRET') }
 	blofin = @{ Test = 'BloFinDemoTradingCycleTests'; Vars = @('BLOFIN_DEMO_API_KEY', 'BLOFIN_DEMO_API_SECRET', 'BLOFIN_DEMO_API_PASSPHRASE') }
+	deriv = @{ Test = 'DerivDemoTradingCycleTests'; Vars = @('DERIV_DEMO_APP_ID', 'DERIV_DEMO_API_TOKEN') }
 }
 
 $selected = if ($Exchange -contains 'all') {
