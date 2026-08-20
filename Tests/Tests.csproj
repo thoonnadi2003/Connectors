@@ -31,6 +31,7 @@
     <ProjectReference Include="..\BitStamp\BitStamp.csproj" />
     <ProjectReference Include="..\Bitunix\Bitunix.csproj" />
     <ProjectReference Include="..\Bitvavo\Bitvavo.csproj" />
+    <ProjectReference Include="..\BloFin\BloFin.csproj" />
     <ProjectReference Include="..\Bluefin\Bluefin.csproj" />
     <ProjectReference Include="..\BTCMarkets\BTCMarkets.csproj" />
 	<ProjectReference Include="..\BtcTurk\BtcTurk.csproj" />
