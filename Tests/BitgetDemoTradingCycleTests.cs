@@ -76,7 +76,13 @@ public class BitgetDemoTradingCycleTests
 				"/api/v2/spot/trade/orderInfo?orderId=" + Uri.EscapeDataString(orderId!), string.Empty,
 				key, secret, passphrase);
 			RequireSuccess(queried.RootElement);
-			Assert.AreEqual(orderId, queried.RootElement.GetProperty("data").GetProperty("orderId").GetString());
+			var queryData = queried.RootElement.GetProperty("data");
+			var queriedOrder = queryData.ValueKind == JsonValueKind.Array
+				? queryData.GetArrayLength() > 0
+					? queryData[0]
+					: throw new InvalidOperationException("Bitget Demo returned no order details.")
+				: queryData;
+			Assert.AreEqual(orderId, queriedOrder.GetProperty("orderId").GetString());
 		}
 		finally
 		{
